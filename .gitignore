@@ -1,7 +1,7 @@
 # ----------------------------
 # Python
 # ----------------------------
-__pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 
@@ -92,7 +92,7 @@ ipython_config.py
 # Environments
 # ----------------------------
 myenv/
-.env
+**/.env
 .venv
 env/
 ENV/
