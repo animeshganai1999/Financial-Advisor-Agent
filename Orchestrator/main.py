@@ -44,26 +44,28 @@ async def main():
     kernel = create_kernel()
 
     # Initialize agents
-    market_agent = MarketAgent(kernel.clone())
+    market_agent = await MarketAgent.create(kernel.clone())
     fundamentals_agent = await FundamentalsAgent.create(kernel.clone())
     news_agent = NewsAgent(kernel.clone())
-    orchestrator_agent = OrchestratorAgent(kernel.clone())
+    orchestrator_agent = await OrchestratorAgent.create(kernel.clone())
     
     # Track agents that need cleanup
-    agents_with_cleanup = [fundamentals_agent]  # Add market_agent, news_agent here if they have MCP plugins
+    agents_with_cleanup = [market_agent, fundamentals_agent]  # Add news_agent here if it has MCP plugin
+    
+    runtime = None
 
     try:
-        # Group chat orchestration
-        orchestration = GroupChatOrchestration(
-            members = [fundamentals_agent,],
-            # members = [market_agent, fundamentals_agent, news_agent, orchestrator_agent],
-            manager = RoundRobinGroupChatManager(max_rounds=1),
-            agent_response_callback=agent_response_callback
-        )
-
         # Example Query
-        user_query = "Give me Inventory Turnover for IBM in last 5 years"
+        user_query = "Should I buy IBM stock right now?"
         print(f"🧑 User: {user_query}\n")
+        
+        # Always use all agents - each contributes their expertise
+        # Orchestrator will synthesize all responses at the end
+        orchestration = GroupChatOrchestration(
+            members = [market_agent, fundamentals_agent, orchestrator_agent],
+            manager = RoundRobinGroupChatManager(max_rounds=3),
+            # agent_response_callback=agent_response_callback
+        )
 
         # Runtime setup
         runtime = InProcessRuntime()
@@ -75,7 +77,19 @@ async def main():
         
         print(f"***** Final Result *****\n{value}")
     
+    except Exception as e:
+        print(f"\n[ERROR] Error during orchestration: {e}")
+        import traceback
+        traceback.print_exc()
+    
     finally:
+        # Stop runtime first
+        if runtime:
+            try:
+                await runtime.stop()
+            except Exception as e:
+                print(f"[WARN] Error stopping runtime: {e}")
+        
         # Clean up all agents with MCP connections
         print("\n[INFO] Cleaning up agent connections...")
         for agent in agents_with_cleanup:
@@ -84,7 +98,16 @@ async def main():
                     await agent.cleanup()
                 except Exception as e:
                     print(f"[WARN] Error cleaning up {agent.name}: {e}")
-        print("[OK] All cleanups completed")
+                    # Suppress the detailed traceback for known async generator cleanup issues
+        # print("[OK] All cleanups completed")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import warnings
+    
+    # Suppress all runtime warnings (includes async generator, coroutine, etc.)
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n[INFO] Interrupted by user")

@@ -17,9 +17,6 @@ def auto_register_tools(package_name="tools"):
     package_path = os.path.dirname(package.__file__)
     
     for _, module_name, _ in pkgutil.iter_modules([package_path]):
-        # Skip the data_loader module
-        if module_name == "data_loader":
-            continue
         module = importlib.import_module(f"{package_name}.{module_name}")
         
         for name, func in vars(module).items():

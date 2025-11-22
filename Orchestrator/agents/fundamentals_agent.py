@@ -1,11 +1,15 @@
 import os
 import yaml
+from dotenv import load_dotenv
 from semantic_kernel.agents import ChatCompletionAgent
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion, AzureChatPromptExecutionSettings
 from semantic_kernel.connectors.ai import FunctionChoiceBehavior
 from semantic_kernel.contents import ChatHistory
 from semantic_kernel.functions import kernel_function
 from semantic_kernel.connectors.mcp import MCPStreamableHttpPlugin
+
+# Load environment variables
+load_dotenv()
 
 
 class FundamentalsAgent(ChatCompletionAgent):
@@ -20,10 +24,11 @@ class FundamentalsAgent(ChatCompletionAgent):
     - Efficiency Ratios (Inventory Turnover, Asset Turnover, Receivable Turnover)
     - Growth Metrics (Revenue Growth, EPS Growth, Operating Income Growth)
     - Dividend Information (Yield, Payout Ratio, Ex-Dividend Date)
-    - Technical Indicators (Moving Averages, Beta, 52-week High/Low)
     
     The agent connects to the Fundamentals MCP server to fetch real-time financial data
     and provides expert analysis on company fundamentals, investment quality, and valuation.
+    
+    For technical indicators (RSI, MACD, Beta, moving averages), defer to MarketAgent.
     """
     
     def __init__(self, kernel):
@@ -54,8 +59,8 @@ class FundamentalsAgent(ChatCompletionAgent):
             f"- Leverage ratios (debt metrics) via get_leverage_ratios()\n"
             f"- Efficiency ratios (turnover metrics) via get_efficiency_ratios()\n"
             f"- Growth metrics (YoY growth rates) via get_growth_metrics()\n"
-            f"- Dividend information via get_dividend_info()\n"
-            f"- Technical indicators via get_technical_indicators()\n\n"
+            f"- Dividend information via get_dividend_info()\n\n"
+            f"Note: For technical indicators (RSI, MACD, moving averages, Beta), defer to the MarketAgent.\n\n"
             f"Guidelines:\n"
             f"- Always cite specific metrics and ratios in your analysis\n"
             f"- Compare metrics against industry benchmarks when relevant\n"
@@ -75,8 +80,9 @@ class FundamentalsAgent(ChatCompletionAgent):
         self.description = (
             "Expert financial analyst specializing in fundamental analysis. "
             "Analyzes valuation metrics, profitability ratios, liquidity, leverage, "
-            "efficiency, growth metrics, dividends, and technical indicators. "
-            "Provides comprehensive investment analysis based on company fundamentals."
+            "efficiency, growth metrics, and dividends. "
+            "Provides comprehensive investment analysis based on company fundamentals. "
+            "Defers technical indicators to MarketAgent."
         )
         
         # Store plugin reference for cleanup
@@ -119,11 +125,14 @@ class FundamentalsAgent(ChatCompletionAgent):
             return
             
         try:
+            # Get MCP URL from environment variable
+            mcp_url = os.getenv("FUNDAMENTALS_MCP_URL", "http://127.0.0.1:8000/mcp")
+            
             # Create and connect to MCP plugin
             self._mcp_plugin = MCPStreamableHttpPlugin(
                 name="FundamentalsMCP",
                 description="Provides comprehensive fundamental financial metrics and ratios for companies.",
-                url="http://127.0.0.1:8000/mcp"
+                url=mcp_url
             )
             
             # Connect to the MCP server
@@ -153,6 +162,12 @@ class FundamentalsAgent(ChatCompletionAgent):
                 self._plugin_initialized = False
                 self._mcp_plugin = None
                 print(f"[OK] {self.name} MCP connection closed")
+            except RuntimeError as e:
+                if "cancel scope" in str(e):
+                    # Known issue with MCP SDK async cleanup - safe to ignore
+                    print(f"[OK] {self.name} MCP connection closed (with async cleanup warning)")
+                else:
+                    raise
             except Exception as e:
                 print(f"[ERROR] Error during cleanup: {str(e)}")
     

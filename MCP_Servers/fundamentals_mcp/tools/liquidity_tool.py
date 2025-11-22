@@ -1,6 +1,11 @@
 from typing import Optional
 import random
-from .data_loader import load_financial_data
+import sys
+from pathlib import Path
+
+# Add parent directory to path to import common module
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from common.data_loader import load_financial_data
 
 
 def get_liquidity_ratios(company: str, year_range: Optional[int] = 1) -> dict:

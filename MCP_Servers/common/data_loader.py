@@ -1,5 +1,5 @@
 """
-Financial data loader utility.
+Shared financial data loader utility for all MCP servers.
 
 This module handles loading financial data for companies.
 Currently loads from local JSON files in MOC_Data folder.
@@ -21,11 +21,11 @@ def load_financial_data(company: str, data_types: Optional[List[str]] = None) ->
     Args:
         company: Company ticker symbol (e.g., 'IBM', 'AAPL')
         data_types: List of data types to load. Options:
-                   - 'balance_sheet'
-                   - 'income_statement'
-                   - 'overview'
-                   - 'earnings'
-                   - 'time_series'
+                   - 'balance_sheet': Balance sheet data
+                   - 'income_statement': Income statement data
+                   - 'overview': Company overview with key metrics
+                   - 'earnings': Earnings data
+                   - 'time_series': Intraday price data
                    If None, loads all available data types.
         
     Returns:
@@ -48,8 +48,10 @@ def load_financial_data(company: str, data_types: Optional[List[str]] = None) ->
     # - Alpha Vantage: https://www.alphavantage.co/query?function=BALANCE_SHEET&symbol={company}
     # - Financial Modeling Prep: https://financialmodelingprep.com/api/v3/balance-sheet-statement/{company}
     # - Yahoo Finance API
+    # - Polygon.io
+    # - Finnhub
     
-    base_dir = Path(__file__).parent.parent.parent.parent / "MOC_Data"
+    base_dir = Path(__file__).parent.parent.parent / "MOC_Data"
     
     # Mapping of data types to file names
     file_mapping = {
@@ -96,31 +98,33 @@ def load_financial_data(company: str, data_types: Optional[List[str]] = None) ->
     return result
 
 
+# Convenience functions for specific data types
+
 def load_balance_sheet(company: str) -> Dict[str, Any]:
-    """Convenience function to load only balance sheet data."""
+    """Load only balance sheet data."""
     data = load_financial_data(company, ['balance_sheet'])
     return data['balance_sheet']
 
 
 def load_income_statement(company: str) -> Dict[str, Any]:
-    """Convenience function to load only income statement data."""
+    """Load only income statement data."""
     data = load_financial_data(company, ['income_statement'])
     return data['income_statement']
 
 
 def load_overview(company: str) -> Dict[str, Any]:
-    """Convenience function to load only company overview data."""
+    """Load only company overview data."""
     data = load_financial_data(company, ['overview'])
     return data['overview']
 
 
 def load_earnings(company: str) -> Dict[str, Any]:
-    """Convenience function to load only earnings data."""
+    """Load only earnings data."""
     data = load_financial_data(company, ['earnings'])
     return data['earnings']
 
 
 def load_time_series(company: str) -> Dict[str, Any]:
-    """Convenience function to load only time series data."""
+    """Load only time series/price data."""
     data = load_financial_data(company, ['time_series'])
     return data['time_series']
