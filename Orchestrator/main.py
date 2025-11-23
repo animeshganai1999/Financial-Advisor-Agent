@@ -40,7 +40,7 @@ def create_kernel() -> Kernel:
     return kernel
 
 async def main():
-    """Main function to run the orchestrator agent."""
+    """Main function to run the orchestrator agent with interactive loop."""
     kernel = create_kernel()
 
     # Initialize agents
@@ -55,27 +55,87 @@ async def main():
     runtime = None
 
     try:
-        # Example Query
-        user_query = "Should I buy IBM stock right now?"
-        print(f"🧑 User: {user_query}\n")
-        
-        # Always use all agents - each contributes their expertise
-        # Orchestrator will synthesize all responses at the end
-        orchestration = GroupChatOrchestration(
-            members = [market_agent, fundamentals_agent, orchestrator_agent],
-            manager = RoundRobinGroupChatManager(max_rounds=3),
-            # agent_response_callback=agent_response_callback
-        )
-
         # Runtime setup
         runtime = InProcessRuntime()
         runtime.start()
-
-        # Run the orchestration
-        response = await orchestration.invoke(user_query, runtime=runtime)
-        value = await response.get()
         
-        print(f"***** Final Result *****\n{value}")
+        print("=" * 70)
+        print("🤖 Financial Advisor Agent - Interactive Mode")
+        print("=" * 70)
+        print("Ask questions about stocks, technical indicators, or fundamentals.")
+        print("Type 'exit' or 'quit' to stop.\n")
+        
+        # Track conversation history as list of (role, content) tuples
+        conversation_history = []
+        
+        # Interactive loop
+        while True:
+            # Get user input
+            user_query = input("🧑 You: ").strip()
+            
+            # Check for exit commands
+            if user_query.lower() in ['exit', 'quit', 'q']:
+                print("\n[INFO] Exiting Financial Advisor Agent...")
+                break
+            
+            # Skip empty input
+            if not user_query:
+                continue
+            
+            print()  # Add spacing
+            
+            # Build enriched query with conversation context
+            if conversation_history:
+                # Include previous conversation context (last 3 exchanges)
+                context_messages = []
+                for role, content in conversation_history[-6:]:
+                    context_messages.append(f"{role}: {content}")
+                
+                conversation_context = "\n".join(context_messages)
+                enriched_query = f"""Previous conversation:
+                {conversation_context}
+
+                Current question: {user_query}
+
+                Please answer the current question, taking into account the conversation history above."""
+            else:
+                enriched_query = user_query
+            
+            # Create NEW orchestration for each query to avoid state issues
+            orchestration = GroupChatOrchestration(
+                members = [market_agent, fundamentals_agent, orchestrator_agent],
+                manager = RoundRobinGroupChatManager(max_rounds=3),
+                # agent_response_callback=agent_response_callback  # Show agent responses in real-time
+            )
+
+            try:
+                # print("[DEBUG] Conversation history size:", len(conversation_history))
+                
+                # Pass enriched query with conversation context
+                response = await orchestration.invoke(enriched_query, runtime=runtime)
+                
+                # print("[DEBUG] Getting response value...")
+                value = await response.get()
+                # print(f"[DEBUG] Response length: {len(str(value))}")
+                
+                # Add to conversation history
+                conversation_history.append(("User", user_query))
+                conversation_history.append(("Assistant", str(value)))
+                
+                print(f"\n{'='*70}")
+                print(f"***** Final Result *****")
+                print(f"{'='*70}")
+                print(f"{value}")
+                print(f"{'='*70}\n")
+            
+            except Exception as e:
+                print(f"\n[ERROR] Error processing query: {e}")
+                import traceback
+                traceback.print_exc()
+                print("Please try again with a different question.\n")
+    
+    except KeyboardInterrupt:
+        print("\n\n[INFO] Interrupted by user (Ctrl+C)")
     
     except Exception as e:
         print(f"\n[ERROR] Error during orchestration: {e}")
@@ -99,7 +159,7 @@ async def main():
                 except Exception as e:
                     print(f"[WARN] Error cleaning up {agent.name}: {e}")
                     # Suppress the detailed traceback for known async generator cleanup issues
-        # print("[OK] All cleanups completed")
+        print("[OK] Shutdown complete")
 
 if __name__ == "__main__":
     import warnings
